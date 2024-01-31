@@ -1,0 +1,152 @@
+globalvar define timer_hud_ref;
+globalvar define score_hud_ref;
+globalvar define match_time_var;
+globalvar define ana_point;
+globalvar define ashe_point;
+globalvar define hanzo_point;
+globalvar define widow_point;
+playervar define damage_list;
+playervar define damage_char;
+playervar define damage_score;
+playervar define local_point;
+
+rule: "Disable Hud and stuff"
+Event.OngoingGlobal
+{
+    ana_point = 5;
+    ashe_point = 3;
+    hanzo_point = 1;
+    widow_point = 1;
+    Wait(1.2);
+    DisableGameModeInworldUI(AllPlayers());
+    DisableGameModeHud(AllPlayers());
+    DisableCompletion();
+    DisableScoring();
+    timer_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Time {0}".Format([(RoundToInteger((MatchTime()%60),Rounding.Down))]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+    score_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Score {0}:{1}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+    SetMatchTime(10);
+    Wait(10.1);
+    SetMatchTime(10);
+    Wait(10);
+    DisableAnnouncer();
+    Wait(5);
+    EnableAnnouncer();
+}
+rule: "Player Spawn"
+Event.OngoingPlayer
+if(HasSpawned())
+{
+    if(HeroOf() == Hero.Ana)
+    {
+        local_point = ana_point;
+    }
+    else if(HeroOf() == Hero.Ashe)
+    {
+        local_point = ashe_point;
+    }
+    else if(HeroOf() == Hero.Hanzo)
+    {
+        local_point = hanzo_point;
+    }
+    else
+    {
+        local_point = widow_point;
+    }
+}
+
+rule: "Clock Stuff 1"
+Event.OngoingGlobal
+if(MatchTime() < 60)
+{
+    DestroyHudText(timer_hud_ref);
+    timer_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Time {0}".Format([(RoundToInteger((MatchTime()%60),Rounding.Down))]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+}
+
+rule: "Clock Stuff 2"
+Event.OngoingGlobal
+if(MatchTime() > 60)
+{
+    DestroyHudText(timer_hud_ref);
+    timer_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Time {0}:{1}".Format([(RoundToInteger((MatchTime()/60),Rounding.Down)),(RoundToInteger((MatchTime()%60),Rounding.Down))]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+}
+
+rule: "In Spawn"
+Event.OngoingPlayer
+if( IsInSpawnRoom())
+{
+    SetMoveSpeed(EventPlayer(),200);
+    WaitUntil(!IsInSpawnRoom(),100);
+    Wait(3);
+    SetMoveSpeed(EventPlayer(),100);
+}
+
+rule: "Damage Check"
+Event.OnDamageTaken
+{
+    if(ArrayContains(Victim().damage_char,Attacker()))
+    {
+        Victim().damage_list[IndexOfArrayValue(Victim().damage_char,Attacker())] += EventDamage();
+    }
+    else
+    {
+        Victim().damage_char = Append(Victim().damage_char,Attacker());
+        Victim().damage_list[IndexOfArrayValue(Victim().damage_char,Attacker())] += EventDamage();
+
+    }
+}
+
+rule: "Clear Array At Max HP"
+Event.OngoingPlayer
+if(Health() == MaxHealth())
+{
+    damage_list = EmptyArray();
+    damage_char = EmptyArray();
+    damage_score = EmptyArray();
+}
+
+rule: "On Death"
+Event.OnDeath
+{
+    //find total damage recieved
+    define temp = [0,0,0,0];
+    //check for player slot 0
+    if(ArrayContains(Victim().damage_char,PlayersInSlot(0,OppositeTeamOf(TeamOf(Victim())))))
+    {
+        temp[0] += Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(0,OppositeTeamOf(TeamOf(Victim()))))];
+        SmallMessage(AllPlayers(),"{0} did {1} damage to {2}".Format([PlayersInSlot(0,OppositeTeamOf(TeamOf(Victim()))),Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(0,OppositeTeamOf(TeamOf(Victim()))))],Victim()]));
+    }
+
+    if(ArrayContains(Victim().damage_char,PlayersInSlot(1,OppositeTeamOf(TeamOf(Victim())))))
+    {
+        temp[1] += Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(1,OppositeTeamOf(TeamOf(Victim()))))];
+        SmallMessage(AllPlayers(),"{0} did {1} damage to {2}".Format([PlayersInSlot(1,OppositeTeamOf(TeamOf(Victim()))),Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(1,OppositeTeamOf(TeamOf(Victim()))))],Victim()]));
+    }
+    
+    if(ArrayContains(Victim().damage_char,PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim())))))
+    {
+        temp[2] += Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim()))))];
+        SmallMessage(AllPlayers(),"{0} did {1} damage to {2}".Format([PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim()))),Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim()))))],Victim()]));
+    }
+
+    if(ArrayContains(Victim().damage_char,PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim())))))
+    {
+        temp[3] += Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim()))))];
+        SmallMessage(AllPlayers(),"{0} did {1} damage to {2}".Format([PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim()))),Victim().damage_list[IndexOfArrayValue(Victim().damage_char,PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim()))))],Victim()]));
+    }
+    define total_damage = temp[0] + temp[1] + temp[2] + temp[3];
+    Victim().damage_score[0] = (temp[0]/total_damage)*PlayersInSlot(0,OppositeTeamOf(TeamOf(Victim()))).local_point;
+    Victim().damage_score[1] = (temp[1]/total_damage)*PlayersInSlot(1,OppositeTeamOf(TeamOf(Victim()))).local_point;
+    Victim().damage_score[2] = (temp[2]/total_damage)*PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim()))).local_point;
+    Victim().damage_score[3] = (temp[3]/total_damage)*PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim()))).local_point;
+    define temp_score = damage_score[0] + damage_score[1] + damage_score[2] + damage_score[3];
+    SmallMessage(AllPlayers(),RoundToInteger(temp_score,Rounding.Down));
+    ModifyTeamScore(OppositeTeamOf(TeamOf(Victim())),RoundToInteger(temp_score,Rounding.Down));
+}
+
+rule: "Bot Create"
+Event.OngoingPlayer
+if(IsButtonHeld(EventPlayer(),Button.Interact))
+{
+    DestroyAllDummyBots();
+    CreateDummyBot(Hero.Hanzo,Team.Team2,0,EventPlayer(),EventPlayer());
+}
