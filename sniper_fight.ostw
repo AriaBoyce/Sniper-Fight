@@ -9,10 +9,13 @@ playervar define damage_list;
 playervar define damage_char;
 playervar define damage_score;
 playervar define local_point;
+playervar define current_hero;
+globalvar define score_limit;
 
 rule: "Disable Hud and stuff"
 Event.OngoingGlobal
 {
+    score_limit = 50;
     ana_point = 5;
     ashe_point = 3;
     hanzo_point = 1;
@@ -23,7 +26,8 @@ Event.OngoingGlobal
     DisableCompletion();
     DisableScoring();
     timer_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Time {0}".Format([(RoundToInteger((MatchTime()%60),Rounding.Down))]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
-    score_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Score {0}:{1}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+    score_hud_ref = CreateHudText(AllPlayers(Team.Team1),null,null,"Match Score {0}:{1}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+    CreateHudText(AllPlayers(Team.Team2),null,null,"Match Score {1}:{0}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
     SetMatchTime(10);
     Wait(10.1);
     SetMatchTime(10);
@@ -52,6 +56,32 @@ if(HasSpawned())
     {
         local_point = widow_point;
     }
+    current_hero = HeroOf(EventPlayer());
+    DisableGameModeInworldUI(AllPlayers());
+    DisableGameModeHud(AllPlayers());
+}
+
+rule: "Hero Change"
+Event.OngoingPlayer
+if(HeroOf(EventPlayer()) != current_hero)
+{
+    if(HeroOf() == Hero.Ana)
+    {
+        local_point = ana_point;
+    }
+    else if(HeroOf() == Hero.Ashe)
+    {
+        local_point = ashe_point;
+    }
+    else if(HeroOf() == Hero.Hanzo)
+    {
+        local_point = hanzo_point;
+    }
+    else
+    {
+        local_point = widow_point;
+    }
+    current_hero = HeroOf(EventPlayer());
 }
 
 rule: "Clock Stuff 1"
@@ -139,10 +169,25 @@ Event.OnDeath
     Victim().damage_score[2] = (temp[2]/total_damage)*PlayersInSlot(2,OppositeTeamOf(TeamOf(Victim()))).local_point;
     Victim().damage_score[3] = (temp[3]/total_damage)*PlayersInSlot(3,OppositeTeamOf(TeamOf(Victim()))).local_point;
     define temp_score = damage_score[0] + damage_score[1] + damage_score[2] + damage_score[3];
-    SmallMessage(AllPlayers(),RoundToInteger(temp_score,Rounding.Down));
+    temp_score = Max(1,temp_score);
+    //SmallMessage(AllPlayers(),RoundToInteger(temp_score,Rounding.Down));
     ModifyTeamScore(OppositeTeamOf(TeamOf(Victim())),RoundToInteger(temp_score,Rounding.Down));
 }
 
+rule: "Check For Win"
+Event.OngoingGlobal
+if(TeamScore(Team.Team1) > score_limit || TeamScore(Team.Team2) > score_limit)
+{
+    if(TeamScore(Team.Team1) > score_limit)
+    {
+        DeclareTeamVictory(Team.Team1);
+    }
+    else
+    {
+        DeclareTeamVictory(Team.Team2);
+    }
+}
+/*
 rule: "Bot Create"
 Event.OngoingPlayer
 if(IsButtonHeld(EventPlayer(),Button.Interact))
@@ -150,3 +195,4 @@ if(IsButtonHeld(EventPlayer(),Button.Interact))
     DestroyAllDummyBots();
     CreateDummyBot(Hero.Hanzo,Team.Team2,0,EventPlayer(),EventPlayer());
 }
+*/
