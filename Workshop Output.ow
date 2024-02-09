@@ -1,0 +1,301 @@
+variables
+{
+    global:
+        0: timer_hud_ref
+        1: score_hud_ref
+        2: match_time_var
+        3: ana_point
+        4: ashe_point
+        5: hanzo_point
+        6: widow_point
+        7: score_limit
+    player:
+        0: damage_list
+        1: damage_char
+        2: damage_score
+        3: local_point
+        4: current_hero
+        5: temp
+        6: total_damage
+        7: temp_score
+}
+
+rule("Disable Hud and stuff")
+{
+
+    event
+    {
+        Ongoing - Global;
+    }
+
+    // Action count: 22
+    actions
+    {
+        Set Global Variable(score_limit, 50);
+        Set Global Variable(ana_point, 5);
+        Set Global Variable(ashe_point, 3);
+        Set Global Variable(hanzo_point, 1);
+        Set Global Variable(widow_point, 1);
+        Wait(1.2, Ignore Condition);
+        Disable Game Mode In-World UI(All Players(All Teams));
+        Disable Game Mode HUD(All Players(All Teams));
+        Disable Built-In Game Mode Completion;
+        Disable Built-In Game Mode Scoring;
+        Create HUD Text(All Players(All Teams), Null, Null, Custom String("Match Time {0}", Round To Integer(Modulo(Match Time, 60), Down)), Top, 0, Color(White), Color(White), Color(White), String, Visible Always);
+        Set Global Variable(timer_hud_ref, Last Text ID);
+        Create HUD Text(All Players(Team 1), Null, Null, Custom String("Match Score {0}:{1}", Team Score(Team 1), Team Score(Team 2)), Top, 0, Color(White), Color(White), Color(White), String, Visible Always);
+        Set Global Variable(score_hud_ref, Last Text ID);
+        Create HUD Text(All Players(Team 2), Null, Null, Custom String("Match Score {1}:{0}", Team Score(Team 2), Team Score(Team 1)), Top, 0, Color(White), Color(White), Color(White), String, Visible Always);
+        Set Match Time(10);
+        Wait(10.1, Ignore Condition);
+        Set Match Time(10);
+        Wait(10, Ignore Condition);
+        Disable Built-In Game Mode Announcer;
+        Wait(5, Ignore Condition);
+        Enable Built-In Game Mode Announcer;
+    }
+}
+
+rule("Player Spawn")
+{
+
+    event
+    {
+        Ongoing - Each Player;
+        All;
+        All;
+    }
+
+    conditions
+    {
+        Has Spawned(Event Player) == True;
+    }
+
+    // Action count: 12
+    actions
+    {
+        If(Compare(Hero Of(Event Player), ==, Hero(Ana)));
+            Set Player Variable(Event Player, local_point, Global Variable(ana_point));
+            Else If(Compare(Hero Of(Event Player), ==, Hero(Ashe)));
+            Set Player Variable(Event Player, local_point, Global Variable(ashe_point));
+            Else If(Compare(Hero Of(Event Player), ==, Hero(Hanzo)));
+            Set Player Variable(Event Player, local_point, Global Variable(hanzo_point));
+        Else;
+            Set Player Variable(Event Player, local_point, Global Variable(widow_point));
+        End;
+        Set Player Variable(Event Player, current_hero, Hero Of(Event Player));
+        Disable Game Mode In-World UI(All Players(All Teams));
+        Disable Game Mode HUD(All Players(All Teams));
+    }
+}
+
+rule("Hero Change")
+{
+
+    event
+    {
+        Ongoing - Each Player;
+        All;
+        All;
+    }
+
+    conditions
+    {
+        Hero Of(Event Player) != Player Variable(Event Player, current_hero);
+    }
+
+    // Action count: 10
+    actions
+    {
+        If(Compare(Hero Of(Event Player), ==, Hero(Ana)));
+            Set Player Variable(Event Player, local_point, Global Variable(ana_point));
+            Else If(Compare(Hero Of(Event Player), ==, Hero(Ashe)));
+            Set Player Variable(Event Player, local_point, Global Variable(ashe_point));
+            Else If(Compare(Hero Of(Event Player), ==, Hero(Hanzo)));
+            Set Player Variable(Event Player, local_point, Global Variable(hanzo_point));
+        Else;
+            Set Player Variable(Event Player, local_point, Global Variable(widow_point));
+        End;
+        Set Player Variable(Event Player, current_hero, Hero Of(Event Player));
+    }
+}
+
+rule("Clock Stuff 1")
+{
+
+    event
+    {
+        Ongoing - Global;
+    }
+
+    conditions
+    {
+        Match Time < 60;
+    }
+
+    // Action count: 3
+    actions
+    {
+        Destroy HUD Text(Global Variable(timer_hud_ref));
+        Create HUD Text(All Players(All Teams), Null, Null, Custom String("Match Time {0}", Round To Integer(Modulo(Match Time, 60), Down)), Top, 0, Color(White), Color(White), Color(White), String, Visible Always);
+        Set Global Variable(timer_hud_ref, Last Text ID);
+    }
+}
+
+rule("Clock Stuff 2")
+{
+
+    event
+    {
+        Ongoing - Global;
+    }
+
+    conditions
+    {
+        Match Time > 60;
+    }
+
+    // Action count: 3
+    actions
+    {
+        Destroy HUD Text(Global Variable(timer_hud_ref));
+        Create HUD Text(All Players(All Teams), Null, Null, Custom String("Match Time {0}:{1}", Round To Integer(Divide(Match Time, 60), Down), Round To Integer(Modulo(Match Time, 60), Down)), Top, 0, Color(White), Color(White), Color(White), String, Visible Always);
+        Set Global Variable(timer_hud_ref, Last Text ID);
+    }
+}
+
+rule("In Spawn")
+{
+
+    event
+    {
+        Ongoing - Each Player;
+        All;
+        All;
+    }
+
+    conditions
+    {
+        Is In Spawn Room(Event Player) == True;
+    }
+
+    // Action count: 4
+    actions
+    {
+        Set Move Speed(Event Player, 200);
+        Wait Until(Not(Is In Spawn Room(Event Player)), 100);
+        Wait(3, Ignore Condition);
+        Set Move Speed(Event Player, 100);
+    }
+}
+
+rule("Damage Check")
+{
+
+    event
+    {
+        Player took damage;
+        All;
+        All;
+    }
+
+    // Action count: 6
+    actions
+    {
+        If(Array Contains(Player Variable(Victim, damage_char), Attacker));
+            Modify Player Variable At Index(Victim, damage_list, Index Of Array Value(Player Variable(Victim, damage_char), Attacker), Add, Event Damage);
+        Else;
+            Set Player Variable(Victim, damage_char, Append To Array(Player Variable(Victim, damage_char), Attacker));
+            Modify Player Variable At Index(Victim, damage_list, Index Of Array Value(Player Variable(Victim, damage_char), Attacker), Add, Event Damage);
+        End;
+    }
+}
+
+rule("Clear Array At Max HP")
+{
+
+    event
+    {
+        Ongoing - Each Player;
+        All;
+        All;
+    }
+
+    conditions
+    {
+        Health(Event Player) == Max Health(Event Player);
+    }
+
+    // Action count: 3
+    actions
+    {
+        Set Player Variable(Event Player, damage_list, Empty Array);
+        Set Player Variable(Event Player, damage_char, Empty Array);
+        Set Player Variable(Event Player, damage_score, Empty Array);
+    }
+}
+
+rule("On Death")
+{
+
+    event
+    {
+        Player died;
+        All;
+        All;
+    }
+
+    // Action count: 25
+    actions
+    {
+        Set Player Variable(Event Player, temp, Array(0, 0, 0, 0));
+        If(Array Contains(Player Variable(Victim, damage_char), Players In Slot(0, Opposite Team Of(Team Of(Victim)))));
+            Modify Player Variable At Index(Event Player, temp, 0, Add, Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(0, Opposite Team Of(Team Of(Victim))))));
+            Small Message(All Players(All Teams), Custom String("{0} did {1} damage to {2}", Players In Slot(0, Opposite Team Of(Team Of(Victim))), Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(0, Opposite Team Of(Team Of(Victim))))), Victim));
+        End;
+        If(Array Contains(Player Variable(Victim, damage_char), Players In Slot(1, Opposite Team Of(Team Of(Victim)))));
+            Modify Player Variable At Index(Event Player, temp, 1, Add, Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(1, Opposite Team Of(Team Of(Victim))))));
+            Small Message(All Players(All Teams), Custom String("{0} did {1} damage to {2}", Players In Slot(1, Opposite Team Of(Team Of(Victim))), Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(1, Opposite Team Of(Team Of(Victim))))), Victim));
+        End;
+        If(Array Contains(Player Variable(Victim, damage_char), Players In Slot(2, Opposite Team Of(Team Of(Victim)))));
+            Modify Player Variable At Index(Event Player, temp, 2, Add, Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(2, Opposite Team Of(Team Of(Victim))))));
+            Small Message(All Players(All Teams), Custom String("{0} did {1} damage to {2}", Players In Slot(2, Opposite Team Of(Team Of(Victim))), Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(2, Opposite Team Of(Team Of(Victim))))), Victim));
+        End;
+        If(Array Contains(Player Variable(Victim, damage_char), Players In Slot(3, Opposite Team Of(Team Of(Victim)))));
+            Modify Player Variable At Index(Event Player, temp, 3, Add, Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(3, Opposite Team Of(Team Of(Victim))))));
+            Small Message(All Players(All Teams), Custom String("{0} did {1} damage to {2}", Players In Slot(3, Opposite Team Of(Team Of(Victim))), Value In Array(Player Variable(Victim, damage_list), Index Of Array Value(Player Variable(Victim, damage_char), Players In Slot(3, Opposite Team Of(Team Of(Victim))))), Victim));
+        End;
+        Set Player Variable(Event Player, total_damage, Add(Add(Add(First Of(Player Variable(Event Player, temp)), Value In Array(Player Variable(Event Player, temp), 1)), Value In Array(Player Variable(Event Player, temp), 2)), Value In Array(Player Variable(Event Player, temp), 3)));
+        Set Player Variable At Index(Victim, damage_score, 0, Multiply(Divide(First Of(Player Variable(Event Player, temp)), Player Variable(Event Player, total_damage)), Player Variable(Players In Slot(0, Opposite Team Of(Team Of(Victim))), local_point)));
+        Set Player Variable At Index(Victim, damage_score, 1, Multiply(Divide(Value In Array(Player Variable(Event Player, temp), 1), Player Variable(Event Player, total_damage)), Player Variable(Players In Slot(1, Opposite Team Of(Team Of(Victim))), local_point)));
+        Set Player Variable At Index(Victim, damage_score, 2, Multiply(Divide(Value In Array(Player Variable(Event Player, temp), 2), Player Variable(Event Player, total_damage)), Player Variable(Players In Slot(2, Opposite Team Of(Team Of(Victim))), local_point)));
+        Set Player Variable At Index(Victim, damage_score, 3, Multiply(Divide(Value In Array(Player Variable(Event Player, temp), 3), Player Variable(Event Player, total_damage)), Player Variable(Players In Slot(3, Opposite Team Of(Team Of(Victim))), local_point)));
+        Set Player Variable(Event Player, temp_score, Add(Add(Add(First Of(Player Variable(Event Player, damage_score)), Value In Array(Player Variable(Event Player, damage_score), 1)), Value In Array(Player Variable(Event Player, damage_score), 2)), Value In Array(Player Variable(Event Player, damage_score), 3)));
+        Set Player Variable(Event Player, temp_score, Max(1, Player Variable(Event Player, temp_score)));
+        Modify Team Score(Opposite Team Of(Team Of(Victim)), Round To Integer(Player Variable(Event Player, temp_score), Down));
+    }
+}
+
+rule("Check For Win")
+{
+
+    event
+    {
+        Ongoing - Global;
+    }
+
+    conditions
+    {
+        Or(Compare(Team Score(Team 1), >, Global Variable(score_limit)), Compare(Team Score(Team 2), >, Global Variable(score_limit))) == True;
+    }
+
+    // Action count: 5
+    actions
+    {
+        If(Compare(Team Score(Team 1), >, Global Variable(score_limit)));
+            Declare team Victory(Team 1);
+        Else;
+            Declare team Victory(Team 2);
+        End;
+    }
+}
