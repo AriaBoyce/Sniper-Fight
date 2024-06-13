@@ -1,5 +1,5 @@
 globalvar define timer_hud_ref;
-globalvar define score_hud_ref;
+playervar define score_hud_ref;
 globalvar define match_time_var;
 globalvar define ana_point;
 globalvar define ashe_point;
@@ -11,23 +11,20 @@ playervar define damage_score;
 playervar define local_point;
 playervar define current_hero;
 globalvar define score_limit;
+playervar define heal_ref;
 
 rule: "Disable Hud and stuff"
 Event.OngoingGlobal
 {
-    score_limit = 50;
-    ana_point = 5;
-    ashe_point = 3;
-    hanzo_point = 1;
-    widow_point = 1;
+    score_limit = WorkshopSettingInteger("Settings","Score Limit",50,10,100,0);
+    ana_point = WorkshopSettingReal("Settings","Ana Score Mult",5.0,1.0,10,1);
+    ashe_point = WorkshopSettingReal("Settings","Ashe Score Mult",3.0,1.0,10,1);
+    hanzo_point = WorkshopSettingReal("Settings","Hanzo Score Mult",1.0,1.0,10,1);
+    widow_point = WorkshopSettingReal("Settings","Widow Score Mult",1.0,1.0,10,1);
     Wait(1.2);
-    DisableGameModeInworldUI(AllPlayers());
-    DisableGameModeHud(AllPlayers());
     DisableCompletion();
     DisableScoring();
-    timer_hud_ref = CreateHudText(AllPlayers(),null,null,"Match Time {0}".Format([(RoundToInteger((MatchTime()%60),Rounding.Down))]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
-    score_hud_ref = CreateHudText(AllPlayers(Team.Team1),null,null,"Match Score {0}:{1}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
-    CreateHudText(AllPlayers(Team.Team2),null,null,"Match Score {1}:{0}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleAlways);
+    
     SetMatchTime(10);
     Wait(10.1);
     SetMatchTime(10);
@@ -40,6 +37,14 @@ rule: "Player Spawn"
 Event.OngoingPlayer
 if(HasSpawned())
 {
+    if(TeamOf(EventPlayer()) == Team.Team1)
+    {
+        CreateHudText(EventPlayer(),null,null,"Match Score {0}:{1}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleNever);
+    }
+    else
+    {
+        CreateHudText(EventPlayer(),null,null,"Match Score {1}:{0}".Format([TeamScore(Team.Team1),TeamScore(Team.Team2)]),Location.Top,0,Color.White,Color.White,Color.White,HudTextRev.String,Spectators.VisibleNever);
+    }
     if(HeroOf() == Hero.Ana)
     {
         local_point = ana_point;
@@ -59,6 +64,8 @@ if(HasSpawned())
     current_hero = HeroOf(EventPlayer());
     DisableGameModeInworldUI(AllPlayers());
     DisableGameModeHud(AllPlayers());
+    StopHealOverTime(heal_ref);
+    heal_ref = StartHealOverTime(EventPlayer(),null,9999,5);
 }
 
 rule: "Hero Change"
@@ -176,15 +183,33 @@ Event.OnDeath
 
 rule: "Check For Win"
 Event.OngoingGlobal
-if(TeamScore(Team.Team1) > score_limit || TeamScore(Team.Team2) > score_limit)
+if(TeamScore(Team.Team1) >= score_limit || TeamScore(Team.Team2) >= score_limit)
 {
-    if(TeamScore(Team.Team1) > score_limit)
+    if(TeamScore(Team.Team1) >= score_limit)
     {
         DeclareTeamVictory(Team.Team1);
     }
     else
     {
         DeclareTeamVictory(Team.Team2);
+    }
+}
+
+rule: "Check for Win at time end"
+Event.OngoingGlobal
+if(MatchTime() == 0)
+{
+    if(TeamScore(Team.Team1) > TeamScore(Team.Team2))
+    {
+        DeclareTeamVictory(Team.Team1);
+    }
+    else if(TeamScore(Team.Team2) > TeamScore(Team.Team1))
+    {
+        DeclareTeamVictory(Team.Team2);
+    }
+    else
+    {
+        DeclareMatchDraw();
     }
 }
 /*
